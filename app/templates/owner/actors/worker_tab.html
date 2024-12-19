@@ -1,0 +1,172 @@
+<div class="container mt-5">
+    <div class="d-flex justify-content-between mb-3">
+        {{ AddButton(btn_class="btn-primary", data_target="#addUserModal") }}
+        {{ SearchForm(placeholder="search for worker...", button_text="search") }}
+    </div>
+
+    {{ DynamicTable(
+        table_id="WorkersTable",
+        columns=[
+            {'header': 'ID', 'field': 'id', 'type': 'hidden'},
+            {'header': 'name', 'field': 'name'},
+            {'header': 'comment', 'field': 'comment'}
+        ],
+        items=items,
+        actions=[
+            {'icon': 'edit', 'function': 'openEditCommentModal', 'label': 'Edit', 'params': ['id', 'comment']},
+            {'icon': 'key', 'function': 'openResetPasswordModal', 'label': 'Reset Password', 'params': ['id']},
+            {'icon': 'trash', 'function': 'deleteUser', 'label': 'Delete', 'params': ['id']}
+        ]
+    ) }}
+
+    {{ Pagination(items) }}
+</div>
+
+<!-- Add User Modal -->
+{{ Modal(
+    modal_id="addUserModal",
+    modal_title="add coworker",
+    form_id="addUserForm",
+    fields=[
+        {'type': 'text', 'name': 'name', 'label': 'name', 'required': True},
+        {'type': 'text', 'name': 'password', 'label': 'password', 'required': True},
+        {'type': 'textarea', 'name': 'comment', 'label': 'comment', 'required': False}
+    ],
+    submit_text='save',
+    button_text='add coworker',
+    submit_function="createWorker()"
+) }}
+
+<!-- Edit Comment Modal -->
+{{ Modal(
+    modal_id="editCommentModal",
+    modal_title="edit comment",
+    form_id="editCommentForm",
+    fields=[
+        {'type': 'hidden', 'name': 'user_id'},
+        {'type': 'textarea', 'name': 'comment', 'label': 'comment', 'required': True}
+    ],
+    submit_text='save',
+    button_text='save',
+    submit_function="saveEditedComment()"
+) }}
+
+<!-- Reset Password Modal -->
+{{ Modal(
+    modal_id="resetPasswordModal",
+    modal_title="reset password",
+    form_id="resetPasswordForm",
+    fields=[
+        {'type': 'hidden', 'name': 'user_id'},
+        {'type': 'text', 'name': 'new_password', 'label': 'new password', 'required': True}
+    ],
+    submit_text='reset',
+    button_text='reset',
+    submit_function="resetPassword()"
+) }}
+
+<script>
+    function openEditCommentModal(userId, currentComment) {
+        document.getElementById("editCommentFormUser_id").value = userId;
+        document.getElementById("editCommentFormComment").value = currentComment;
+        $('#editCommentModal').modal('show');
+    }
+
+    function saveEditedComment() {
+        var userId = document.getElementById("editCommentFormUser_id").value;
+        var newComment = document.getElementById("editCommentFormComment").value;
+        $.ajax({
+            url: '/users/' + userId,
+            method: 'PUT',
+            contentType: 'application/json',
+            data: JSON.stringify({ comment: newComment }),
+            success: function(response) {
+                $('#editCommentModal').modal('hide');
+                window.location.reload();
+            },
+            error: function(xhr, status, error) {
+                console.error('Error updating comment:', xhr.responseText);
+                alert('Failed to update comment. Please try again.');
+            }
+        });
+    }
+
+    function createWorker() {
+        var name = document.getElementById("addUserFormName").value;
+        var password = document.getElementById("addUserFormPassword").value;
+        var comment = document.getElementById("addUserFormComment").value;
+
+        $.ajax({
+            url: '/users',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                name: name,
+                password: password,
+                comment: comment,
+                role: 'worker'
+            }),
+            success: function(response) {
+                $('#addUserModal').modal('hide');
+                window.location.reload();
+            },
+            error: function(error) {
+                console.error('Error adding user:', error);
+                alert('Failed to add user. Please try again.');
+            }
+        });
+    }
+
+
+    function resetPassword() {
+        // Retrieve the user ID from the hidden input field
+        const userId = document.getElementById("resetPasswordFormUser_id").value;
+
+        // Retrieve the new password from the input field
+        const newPassword = document.getElementById("resetPasswordFormNew_password").value;
+
+        // Check if the password field is empty
+        if (!newPassword) {
+            alert('please enter new password.'); // Alert if no password is provided
+            return; // Exit the function if no password is provided
+        }
+
+        // Make an AJAX call to the server to reset the password
+        $.ajax({
+            url: '{{ url_for("auth.reset_password") }}', // API endpoint
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ user_id: userId, new_password: newPassword }), // Send user ID and new password
+            success: function(response) {
+                // Handle success response
+                alert('password is reset!'); // Success alert
+                $('#resetPasswordModal').modal('hide'); // Hide the modal
+                window.location.reload(); // Reload the page to reflect changes
+            },
+            error: function(xhr) {
+                // Handle error response
+                alert('error: ' + xhr.responseJSON.error);
+            }
+        });
+    }
+
+    function openResetPasswordModal(userId) {
+        document.getElementById("resetPasswordFormUser_id").value = userId;
+        $('#resetPasswordModal').modal('show');
+    }
+
+    function deleteUser(userId) {
+        if (confirm("sure, do you want to delete the coworker?")) {
+            $.ajax({
+                url: '/users/' + userId,
+                method: 'DELETE',
+                success: function(response) {
+                    window.location.reload();
+                },
+                error: function(xhr) {
+                    alert('error: ' + xhr.responseJSON.error);
+                }
+            });
+        }
+    }
+</script>

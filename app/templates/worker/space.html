@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+
+{{ HeaderComponent(current_user.name, dropdowns) }}
+
+<div class="container mt-3">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                <div id="flash-messages-container" style="position: fixed; top: 0; width: 70%; z-index: 1000;">
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert" style="margin: 0; border-radius: 0;">
+                                {{ message }}
+                                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                                    <span aria-hidden="true">&times;</span>
+                                </button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                </div>
+            {% endwith %}
+
+    <div class="tab-content" id="tabContent">
+        <!-- Content loaded dynamically for each tab -->
+    </div>
+</div>
+{% endblock %}
+
+{% block script %}
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const dropdowns = document.querySelectorAll('.dropdown-toggle');
+    
+        dropdowns.forEach(dropdown => {
+            dropdown.addEventListener('click', function() {
+                const menu = this.nextElementSibling; // Get the dropdown menu
+                const isVisible = menu.style.display === 'block'; // Check if it's currently visible
+    
+                // Hide all dropdowns
+                document.querySelectorAll('.dropdown-menu').forEach(m => m.style.display = 'none');
+    
+                // Toggle visibility
+                menu.style.display = isVisible ? 'none' : 'block';
+            });
+        });
+    
+        // Close dropdowns when clicking outside
+        document.addEventListener('click', function(event) {
+            dropdowns.forEach(dropdown => {
+                const menu = dropdown.nextElementSibling;
+                if (!dropdown.contains(event.target) && !menu.contains(event.target)) {
+                    menu.style.display = 'none'; // Hide the dropdown if clicked outside
+                }
+            });
+        });
+    });
+
+    function clearNavigationState() {
+        localStorage.removeItem('activeTab');
+        localStorage.removeItem('searchQuery');
+        localStorage.removeItem('searchField');
+    }
+
+    function updateSearchInput(searchField) {
+        // Remove the existing search input or select
+        $('#searchQuery').remove();
+
+        var inputGroup = $('#searchForm .input-group');
+        var searchButton = inputGroup.find('.input-group-append');
+
+        var newInput = $('<input>').attr('type', 'text').attr('id', 'searchQuery').attr('name', 'search').addClass('form-control').attr('placeholder', 'Search for...');
+        
+        searchButton.before(newInput);
+    }
+
+
+        const tabDisplayNames = {
+            'knowledges': 'knowledges',
+            'logs': 'logs'
+        };
+        
+        function updateActiveTabName(tabId) {
+            const tabName = tabDisplayNames[tabId] || 'noname tab';
+            document.getElementById('NameActiveTab').textContent = tabName;
+        }
+
+    jQuery(document).ready(function($) {
+
+
+        $(document).on('change', '#searchField', function() {
+            updateSearchInput($(this).val());
+        });
+
+        // Initial call to set up the search input correctly based on the initially selected field
+        updateSearchInput($('#searchField').val());
+
+        window.loadTabContent = function(tabName, pageNumber = 1, searchQuery = '', searchField = '') {
+            // Construct the URL with tab, page, search query, and search field parameters
+            var contentUrl = `/get_worker_tab_content?tab=${tabName}&page=${pageNumber}&search=${encodeURIComponent(searchQuery)}&field=${encodeURIComponent(searchField)}`;
+        
+            localStorage.setItem('activeTab', tabName);
+            localStorage.setItem('searchQuery', searchQuery);
+            localStorage.setItem('searchField', searchField);
+            updateActiveTabName(tabName);
+            // Perform the AJAX request to get the content
+            $.ajax({
+                url: contentUrl,
+                success: function(data) {
+                    $('#tabContent').html(data);
+        
+                    $('.nav-link').removeClass('active');
+                    $('.nav-link[href="#' + tabName + '"]').addClass('active');
+        
+                    $('#tabContent .pagination a').on('click', function(e) {
+                        e.preventDefault();
+                        var newPage = $(this).data('page');
+                        var searchQuery = localStorage.getItem('searchQuery') || '';
+                        var searchField = localStorage.getItem('searchField') || 'id';
+                   
+                        loadTabContent(tabName, newPage, searchQuery, searchField);
+                    });
+        
+                    $('#searchForm').submit(function(e) {
+                        e.preventDefault();
+                        var searchQuery = $('#searchQuery').val();
+                        var searchField = $('#searchField').val();
+                        loadTabContent(tabName, 1, searchQuery, searchField);
+                    });
+                },
+                error: function() {
+                    $('#tabContent').html('<div class="alert alert-danger">Failed to load content.</div>');
+                }
+            });
+        }
+
+        $('.nav-link a').on('click', function(e) {
+            e.preventDefault();
+            var tabName = $(this).attr('href').substring(1);
+            loadTabContent(tabName);
+            localStorage.setItem('activeTab', tabName);
+
+            // Hide all dropdowns
+            document.querySelectorAll('.dropdown-menu').forEach(m => m.style.display = 'none');
+
+        });
+
+        // Load the initial tab content
+        var initialTab = localStorage.getItem('activeTab') || 'knowledges';
+        var initialSearchQuery = localStorage.getItem('searchQuery') || '';
+        var initialSearchField = localStorage.getItem('searchField') || 'id';
+        
+        loadTabContent(initialTab, 1, initialSearchQuery, initialSearchField);
+
+    });
+
+    document.addEventListener("DOMContentLoaded", function() {
+        // Set a timeout to hide the flash messages after 3 seconds (3000 milliseconds)
+        setTimeout(function() {
+            var flashMessages = document.getElementById('flash-messages-container');
+            if (flashMessages) {
+                flashMessages.style.transition = 'opacity 0.5s ease';
+                flashMessages.style.opacity = '0';
+                // Remove the element after the fade-out effect
+                setTimeout(function() {
+                    flashMessages.remove();
+                }, 500);
+            }
+        }, 2000);
+    });
+{% endblock %}

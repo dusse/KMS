@@ -1,0 +1,79 @@
+<div class="container mt-5">
+    <div class="d-flex justify-content-between mb-3">
+        {{ AddButton(btn_class="btn-primary", data_target="#addKnowledgeTypeModal") }}
+        {{ SearchForm() }}
+    </div>
+
+    {{ DynamicTable(
+        table_id="ProductsTable",
+        columns=[
+            {'header': 'ID', 'field': 'id', 'type': 'hidden'}, 
+            {'header': 'name', 'field': 'name'},        
+            {'header': 'description', 'field': 'description'}
+        ],
+        items=items,
+        actions=[
+            {'icon': 'edit', 'function': 'openEditKnowledgeTypeModal', 'label': 'Edit', 'params': ['id', 'name', 'description']},
+            {'icon': 'trash', 'function': 'deleteKnowledgeType', 'label': 'Delete', 'params': ['id']}
+        ]
+        )
+    }}
+
+    {{ Pagination(items) }}
+</div>
+
+{{ Modal(
+    modal_id="addKnowledgeTypeModal",
+    modal_title="add knowledge type",
+    form_id="addKnowledgeTypeForm",
+    fields=[
+        {'type': 'text', 'name': 'name', 'label': 'name', 'required': True},
+        {'type': 'textarea', 'name': 'description', 'label': 'description', 'required': False},        
+    ],
+    submit_text='done',
+    button_text='add knowledge type',
+    submit_function="submitAddKnowledgeTypeForm()"
+) }}
+
+{{ Modal(
+    modal_id="editKnowledgeTypeModal",
+    modal_title="edit knowledge type",
+    form_id="editKnowledgeTypeForm",
+    fields=[
+        {'type': 'hidden', 'name': 'id'},
+        {'type': 'text', 'name': 'name', 'label': 'name', 'required': True},
+        {'type': 'textarea', 'name': 'description', 'label': 'description', 'required': False}
+    ],
+    submit_text='done',
+    button_text='edit knowledge type',
+    submit_function="saveEditedKnowledgeType()"
+) }}
+
+
+
+<script>
+var apiUrl = '/api/knowledgetype';
+
+function submitAddKnowledgeTypeForm() {
+    submitAddItem(apiUrl, 'addKnowledgeTypeForm', 'addKnowledgeTypeModal');
+}
+
+function openEditKnowledgeTypeModal(id, name, description) {
+    const form = document.getElementById('editKnowledgeTypeForm');
+    const formId = form.elements['id'];
+    const formName = form.elements['name'];
+    const formDescription = form.elements['description'];
+    if (formId) formId.value = id;
+    if (formName) formName.value = name;
+    if (formDescription) formDescription.value = description;
+    $('#editKnowledgeTypeModal').modal('show');
+}
+
+function saveEditedKnowledgeType() {
+     saveEditedItem(apiUrl, 'editKnowledgeTypeForm', 'editKnowledgeTypeModal');
+}
+
+function deleteKnowledgeType(id) {
+    deleteItem(apiUrl, id);
+}
+</script>

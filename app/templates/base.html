@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+   
+   <link href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/css/select2.min.css" rel="stylesheet" crossorigin="anonymous">    
+
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+
+    <div class="container">
+
+        <main>
+            {% block content %}
+            <!-- Content unique to each page will go here -->
+            {% endblock %}
+        </main>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.16.1/umd/popper.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/diff@5.1.0/dist/diff.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/js/select2.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+    <style>
+        .MathJax_Display {
+            text-align: left !important; /* Override default centering */
+            display: block; /* Ensure it takes the full width */
+            margin: 0; /* Remove any default margins */
+        }
+    </style>
+    
+    <script type="text/javascript">
+        window.MathJax = {
+        tex: {
+            inlineMath: [['$', '$'], ['\\(', '\\)']],
+            displayMath: [['$$', '$$'], ['\\[', '\\]']]
+        },
+        options: {
+            renderActions: {
+                findScript: [100, () => {}, '']
+            }
+        }
+    };
+
+    </script>
+
+    <script id="MathJax-script" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+
+<!--     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/spectrum/1.8.1/spectrum.min.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/spectrum/1.8.1/spectrum.min.js"></script> -->
+</body>
+
+
+<div class="modal fade" id="deleteModal" tabindex="-1" role="dialog" aria-labelledby="deleteModalLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="deleteModalLabel">confirm delete</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p id="deleteMessage">sure, want to delete?</p>
+      </div>
+      <div class="modal-footer">
+            <div class="row w-100">
+                <div style="width: 50%;">
+                    <button type="button" class="btn btn-secondary w-100" data-dismiss="modal">no</button>
+                </div>
+                <div style="width: 50%;">
+                    <button type="button" id="confirmDeleteBtn" class="btn btn-danger w-100">yes</button>
+                </div>
+            </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<div class="modal fade" id="validationModal" tabindex="-1" role="dialog" aria-labelledby="validationModalLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="validationModalLabel">check</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p id="validationMessage">please, field required fields.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<div class="modal fade" id="successModal" tabindex="-1" role="dialog" aria-labelledby="successModalLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="successModalLabel">success</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p id="successMessage">data loaded.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal" onclick="location.reload();">ok</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<div style="background-color: #ffffff; border-top: 1px solid #dee2e6; margin-top: 3rem;">
+</div>
+
+<script>
+    
+
+    {% block script %}
+
+    {% endblock %}
+
+
+    function addCallbackToSession(callback) {
+        // Get the existing callbacks from session storage
+        let callbacks = JSON.parse(sessionStorage.getItem('callbackQueue')) || [];
+        
+        // Store the stringified version of the callback function
+        callbacks.push(callback.toString());
+        
+        // Save it back to session storage
+        sessionStorage.setItem('callbackQueue', JSON.stringify(callbacks));
+    }
+
+    document.addEventListener("DOMContentLoaded", function() {
+
+        setTimeout(function() {
+            let callbacks = JSON.parse(sessionStorage.getItem('callbackQueue')) || [];
+            
+            // Execute each callback
+            callbacks.forEach(callbackString => {
+                try {
+                    // Create a function from the string and execute it
+                    const callbackFunc = new Function(`return ${callbackString}`)();
+                    callbackFunc(); // Call the callback function
+                } catch (e) {
+                    console.error('Error executing callback:', e);
+                }
+            });
+        
+            // Clear the callbacks after execution
+            sessionStorage.removeItem('callbackQueue');
+        }, 500);
+
+ 
+        setTimeout(function() {
+            var flashMessages = document.getElementById('flash-messages-container');
+            if (flashMessages) {
+                flashMessages.style.transition = 'opacity 0.5s ease';
+                flashMessages.style.opacity = '0';
+                setTimeout(function() {
+                    flashMessages.remove();
+                }, 500);
+            }
+        }, 2000);
+    });
+
+
+
+    function openModal(modalId, data) {
+        Object.keys(data).forEach(key => {
+            const input = document.getElementById(`${modalId}${key.charAt(0).toUpperCase() + key.slice(1)}`);
+            if (input) {
+                input.value = data[key];
+            }
+        });
+        $(`#${modalId}`).modal('show');
+    }
+    
+    function deleteItem(apiUrl, id, message = 'sure, want to delete?') {
+        deleteItemApiUrl = apiUrl;
+        deleteItemId = id;
+    
+        document.getElementById('deleteMessage').textContent = message;
+
+        document.getElementById('confirmDeleteBtn').onclick = function() {
+            confirmDeleteItem(apiUrl, id);
+        };
+    
+        $('#deleteModal').modal('show');
+    }
+    
+
+    function handleFormSubmission(apiUrl, method, formId, modalId, successMessage, callback) {
+        const form = document.getElementById(formId);
+        if (!validateForm(form)) {
+            return;
+        }
+    
+        // Create a plain JS object to hold the form data
+        const formDataObj = {};
+        const formData = new FormData(form);
+    
+        // Convert FormData to a JS object
+        formData.forEach((value, key) => {
+            formDataObj[key] = value;
+        });
+    
+        // Send the object as JSON
+        fetch(apiUrl, {
+            method: method,
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(formDataObj) // Convert the JS object to JSON string
+        })
+        .then(response => {
+            console.log('Response status:', response.status); // Log the response status
+            if (!response.ok) {
+                throw new Error(`Network response was not ok. Status code: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.error) {
+                alert('Error: ' + data.error);
+            } else {
+                $(`#${modalId}`).modal('hide');
+    
+                if (callback) {
+                    callback();
+                } else {
+                    location.reload();
+                }
+            }
+        })
+        .catch(error => {
+            console.error('There has been a problem with your fetch operation:', error);
+            alert('Failed to complete the operation. Please try again.');
+        });
+    }
+
+    function wrapText(text, maxChars = 49, maxLength = 1000) {
+        // Remove newlines and trim extra spaces
+        text = text.replace(/\n/g, ' ');
+        text = text.trim();
+    
+        // Limit text length to the specified maxLength
+        if (text.length > maxLength) {
+            text = text.substring(0, maxLength);
+        }
+    
+        var words = text.split(' ');
+        var lines = [];
+        var currentLine = '';
+    
+        // Loop through each word and build lines based on maxChars
+        for (var i = 0; i < words.length; i++) {
+            var word = words[i];
+            var testLine = currentLine + (currentLine === '' ? '' : ' ') + word;
+    
+            if (testLine.length <= maxChars) {
+                currentLine = testLine;
+            } else {
+                // alert(currentLine);
+                lines.push(currentLine);
+                currentLine = word;
+            }
+        }
+    
+        // Push the final line if any text remains
+        if (currentLine.length > 0) {
+            lines.push(currentLine);
+        }
+    
+        // Return the text with LaTeX line breaks for MathJax rendering
+        return lines.join(' ');
+    }
+
+    function submitAddItem(apiUrl, formId, modalId) {
+        handleFormSubmission(apiUrl, 'POST', formId, modalId, 'Item added successfully!');
+    }
+    
+    function saveEditedItem(apiUrl, formId, modalId, callback) {
+        const form = document.getElementById(formId);
+        const formData = new FormData(form);
+        const itemId = formData.get('id');
+        handleFormSubmission(`${apiUrl}/${itemId}`, 'PUT', formId, modalId, 'Item updated successfully!', callback);
+    }
+
+    function confirmDeleteItem(apiUrl, id) {
+        $.ajax({
+            url: `${apiUrl}/${id}`,
+            method: 'DELETE',
+            success: function(response) {
+                location.reload();
+            },
+            error: function(error) {
+                console.error('Error deleting item:', error);
+                alert('Failed to delete item. Please try again.');
+            }
+        });
+    
+        $('#deleteModal').modal('hide');
+    };
+
+
+    function showValidationModal(msg) {
+        // Update the modal message with the provided message
+        document.getElementById('validationMessage').textContent = msg;
+        
+        // Show the validation modal
+        $('#validationModal').modal({
+            backdrop: false, // Disables the backdrop
+            keyboard: true   // Allows closing with Esc key
+        });
+    }
+
+
+    function validateForm(form) {
+        let isValid = true;
+        const requiredInputs = form.querySelectorAll('[required]');
+        const missingFields = [];
+    
+        console.log("Starting validation for form:", form); // Log the form being validated
+    
+        requiredInputs.forEach(input => {
+            console.log("Checking input:", input); // Log the input being checked
+    
+            // Find the label associated with the input
+            const label = form.querySelector(`label[for="${input.id}"]`);
+            const labelText = label  ? label.textContent + ';': "Unknown field;"; // Default to "Unknown field" if no label is found
+    
+            if (!input.value.trim()) {
+                isValid = false;
+                input.classList.add('is-invalid');
+                console.log("Invalid input detected:", input); // Log invalid inputs
+    
+                missingFields.push(labelText); // Add the label text to missing fields
+            } else {
+                input.classList.remove('is-invalid');
+                console.log("Input is valid:", input); // Log valid inputs
+            }
+        });
+    
+        if (!isValid) {
+            // Create a detailed error message with the labels of the missing fields
+            const errorMessage = 'Please, fill required fields:\n' + missingFields.join('\n');
+            console.log("Validation failed. Error message:", errorMessage); // Log the error message to be shown
+            showValidationModal(errorMessage);
+        } else {
+            console.log("Validation succeeded."); // Log when validation is successful
+        }
+    
+        return isValid;
+    }
+
+    function toggleStatus(id, baseUrl) {
+        const isActive = document.getElementById(`toggle_${id}`).checked;
+        const url = `${baseUrl}/${id}`;
+        console.log('Sending PATCH request to:', url);
+    
+        $.ajax({
+            url: url,
+            method: 'PATCH',
+            contentType: 'application/json',
+            data: JSON.stringify({ is_active: isActive }),
+            success: function(response) {
+                console.log('Status updated:', response);
+            },
+            error: function(xhr, status, error) {
+                console.error('Error updating status:', xhr.responseText);
+                alert('Failed to update status. Please try again.');
+            }
+        });
+    }
+
+    function downloadExcel() {
+        const url = `${apiUrl}/download_excel`;
+    
+        const modelName = apiUrl.split('/').pop();
+        const filename = `${modelName}.xlsx`;
+
+        fetch(url)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.blob();
+            })
+            .then(blob => {
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                window.URL.revokeObjectURL(url);
+            })
+            .catch(error => {
+                console.error('There was a problem with the fetch operation:', error);
+                alert('Failed to download the Excel file. Please try again.');
+            });
+    }
+
+
+    function uploadExcel(event) {
+        const file = event.target.files[0];
+        if (!file) {
+            alert('Пожалуйста, выберите файл Excel.');
+            return;
+        }
+    
+        const formData = new FormData();
+        formData.append('excel_file', file);
+    
+        $.ajax({
+            url: `${apiUrl}/upload_excel`,
+            method: 'POST',
+            data: formData,
+            contentType: false,
+            processData: false,
+            success: function(response) {
+                document.getElementById('successMessage').textContent = 'Данные успешно загружены из Excel.';
+                $('#successModal').modal('show');
+            },
+            error: function(error) {
+                console.error('Error uploading Excel file:', error);
+                alert('Не удалось загрузить файл Excel. Пожалуйста, попробуйте снова.');
+            }
+        });
+    }
+
+    
+
+    function transitionBetweenModals(modalToHide, modalToShow) {
+        // Ensure we remove any previous event listeners to avoid duplication
+        $(`#${modalToHide}`).off(`hidden.bs.modal.${modalToShow}`);
+    
+        // Add the inert attribute to the modal that will be hidden
+        $(`#${modalToHide}`).attr('inert', true);
+    
+        // Hide the modalToHide and show modalToShow only after modalToHide is fully hidden
+        $(`#${modalToHide}`).modal('hide').on(`hidden.bs.modal.${modalToShow}`, function () {
+            console.log(`${modalToHide} is now hidden`);
+    
+            // Remove the inert attribute to make the modal visible again
+            $(this).removeAttr('inert');
+    
+            // Show modalToShow after modalToHide is hidden
+            $(`#${modalToShow}`).modal('show');
+    
+            // Check if modal is fully visible by listening to 'shown.bs.modal'
+            $(`#${modalToShow}`).on('shown.bs.modal', function () {
+                console.log(`${modalToShow} is fully shown`);
+    
+                // Ensure that the modal is at the top of the stacking order
+                $(`#${modalToShow}`).css('z-index', '1050'); // Default Bootstrap z-index for modals
+                
+                // Manually force visibility and check for modal-backdrop issues
+                if (!$(`#${modalToShow}`).is(':visible')) {
+                    console.log(`${modalToShow} is not visible, forcing visibility`);
+                    $(`#${modalToShow}`).css('display', 'block').css('opacity', '1');
+                }
+    
+                // Cleanup: Remove the event listener after modalToShow is fully shown
+                $(`#${modalToShow}`).off('shown.bs.modal');
+            });
+    
+            // Cleanup: Remove the event listener for hiding modalToHide
+            $(`#${modalToHide}`).off(`hidden.bs.modal.${modalToShow}`);
+        });
+    }
+    
+
+
+    function getLuminance(color) {
+        // Convert hex color to RGB
+        let r, g, b;
+        if (color.startsWith('#')) {
+            // Remove the '#' and convert to RGB
+            let hex = color.slice(1);
+            if (hex.length === 3) {
+                r = parseInt(hex[0] + hex[0], 16);
+                g = parseInt(hex[1] + hex[1], 16);
+                b = parseInt(hex[2] + hex[2], 16);
+            } else if (hex.length === 6) {
+                r = parseInt(hex.slice(0, 2), 16);
+                g = parseInt(hex.slice(2, 4), 16);
+                b = parseInt(hex.slice(4, 6), 16);
+            }
+        } else {
+            // If color is not a hex code, return white as fallback
+            return 1; // Default luminance for white
+        }
+    
+        // Calculate relative luminance
+        const a = [r, g, b].map(function (v) {
+            v /= 255;
+            return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+        });
+        return a[0] * 0.2126 + a[1] * 0.7152 + a[2] * 0.0722; // Calculate the luminance
+    }
+    
+    // Function to determine text color based on background color
+    function getContrastingTextColor(backgroundColor) {
+        const luminance = getLuminance(backgroundColor);
+        return luminance > 0.5 ? 'black' : 'white'; // Return black for light colors and white for dark colors
+    }
+
+
+
+</script>
+
+</html>

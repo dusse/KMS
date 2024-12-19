@@ -1,0 +1,512 @@
+{% extends "base.html" %}
+
+
+{% block content %}
+
+<style>
+    .item-content .mjx-chtml {
+        text-align: left;
+    }
+
+
+    #addKnowledgeModal .modal-dialog {
+        max-width: 47%;
+        width: auto;
+    }
+
+    .modal-dialog {
+        margin: auto;
+    }
+
+    .view-toggle {
+        margin: 10px;
+        font-size: 1.2rem;
+    }
+
+    .card-container, .table-container {
+        display: none;
+    }
+
+    .active-view {
+        display: block;
+    }
+
+    .card {
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        padding: 10px;
+        margin: 10px;
+        width: 18rem;
+        display: inline-block;
+        vertical-align: top;
+    }
+
+    .table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .table th, .table td {
+        border: 1px solid #ddd;
+        padding: 8px;
+    }
+    
+    .table th {
+        text-align: left;
+        background-color: #f2f2f2;
+    }
+
+</style>
+
+
+<div class="container mt-5">
+    <div class="d-flex justify-content-between mb-3">
+        {{ AddButton(btn_class="btn-primary", data_target="#addKnowledgeModal") }}
+        <button class="btn btn-secondary" data-toggle="modal" data-target="#uploadKnowledgeModal">
+            <i class="fas fa-upload"></i> upload from .zip
+        </button>
+        {{ SearchForm() }}
+    </div>
+
+
+    <div id="cardView" class="card-container active-view">
+        {{ DynamicCard(
+            card_id="knowledgesCards",
+            columns=[
+                {'header': 'ID', 'field': 'id', 'type': 'hidden'},
+                {'header': 'sharing status', 'field': 'sharing_status.description'},
+                {'header': 'theme', 'field': 'theme_name', 'type': 'link', 'tabname': 'themes'},
+                {'header': 'collection name', 'field': 'name'},
+                {'header': 'description', 'field': 'description'},                
+                {'header': 'creator', 'field': 'creator_name'},
+                {'header': 'created', 'field': 'created_at', 'type': 'humandate'},
+                {'header': 'unique number', 'field': 'unique_number'}
+            ],
+            items=items,
+            actions=[
+                {'icon': 'eye', 'function': 'viewKnowledgeDetails', 'label': 'eye', 'params': ['id']},
+                {'icon': 'edit', 'function': 'openEditKnowledgeModal', 'label': 'edit', 'params': ['id', 'name', 'description','sharing_status.name','creator_name']},
+                {'icon': 'copy', 'function': 'copyKnowledge', 'label': 'copy', 'params': ['id']},
+                {'icon': 'trash', 'function': 'deleteKnowledge', 'label': 'delete', 'params': ['id']},
+                {'icon': 'download', 'function': 'downloadKnowledge', 'label': 'download', 'params': ['id']}
+            ]
+        ) }}
+    </div>  
+
+    {{ Pagination(items) }}
+</div>
+
+{{ SelectorModal(modal_id="selectKnowledgeTypeModal", modal_title="knowledge types", items=knowledgetypes, onclick_function_name='openAddKnowledgeItemDetailsModal',   close_function_name='closeSelectKnowledgeTypeModal') }}
+
+
+{{ Modal(
+    modal_id="editKnowledgeModal",
+    modal_title="edit knowledge",
+    modal_type='edit',
+    form_id="editKnowledgeForm",
+    fields=[
+        {'type': 'hidden', 'name': 'id'},
+        {'type': 'select', 'name': 'sharing_status', 'label': 'sharing status', 'options': available_sharing_statuses, 'required': True},
+        {'type': 'textarea', 'name': 'name', 'label': 'name', 'required': True},
+        {'type': 'textarea', 'name': 'description', 'label': 'description'}
+    ],
+    submit_text='edit',
+    button_text='edit',
+    submit_function="saveEditedKnowledge()"
+) }}
+
+<div class="modal fade" id="uploadKnowledgeModal" tabindex="-1" aria-labelledby="uploadKnowledgeModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="uploadKnowledgeForm" enctype="multipart/form-data">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="uploadKnowledgeModalLabel">Upload Knowledge</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="knowledgeFile">Choose ZIP file</label>
+                        <input type="file" class="form-control" id="knowledgeFile" name="file" accept=".zip" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Upload</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="addKnowledgeModal" tabindex="-1" role="dialog" aria-labelledby="addKnowledgeModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-scrollable" role="document">
+        <div class="modal-content">
+            <form id="addKnowledgeForm" action="#" method="POST" enctype="multipart/form-data">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="addKnowledgeModalLabel">add knowledge</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close" id="closeModalButton">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body" style="overflow-y: auto;">
+                    <div class="form-group">
+                        <label for="name">name</label>
+                        <input type="text" class="form-control" id="name" name="name" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="theme_name">theme</label>
+                        <select class="form-control" id="theme_name" name="theme_name" required>
+                            {% for theme in themes %}
+                                <option value="{{ theme.name }}">{{ theme.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="description">description</label>
+                        <input type="text" class="form-control" id="description" name="description">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal" id="closeModalFooter" onclick="closeAddKnowledgeModal()">close</button>
+                    <button type="button" class="btn btn-primary" onclick="submitKnowledge()">save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+
+<div class="modal fade" id="itemEntryModal" tabindex="-1" role="dialog" aria-labelledby="itemEntryModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="itemEntryModalLabel">details</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="itemEntryForm">
+                    <input type="hidden" id="selectedKnowledgeTypeId" name="knowledgetype_id" value="">
+                    <div class="form-group">
+                        <label for="selectedKnowledgeTypeName">type</label>
+                        <input type="text" class="form-control" id="selectedKnowledgeTypeName" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label for="itemName">name</label>
+                        <input type="text" class="form-control" name="itemName" id="itemName" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="itemDescription">description</label>
+                        <input type="text" class="form-control" name="itemDescription" id="itemDescription" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="itemContent">content</label>
+                        <input type="text" class="form-control" name="itemContent" id="itemContent" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="imgsrc">image src</label>
+                        <input type="file" class="form-control" name="imgsrc" id="imgsrc" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="filename">file</label>
+                        <input type="file" class="form-control" name="file" id="filename" required>
+                    </div>
+
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal" onclick="closeItemEntryModal()">close</button>
+                <button type="button" class="btn btn-primary" onclick="addItemToKnowledge()">add</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+        
+
+<script>
+var apiUrl = '/api/knowledge';
+
+
+function copyKnowledge(id) {
+    // Send a request to the backend to create a copy of the knowledge using just the ID
+    fetch(`/api/knowledge/copy/${id}`, {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log('Successfully created copy:', data);
+        // Reload the page after successful copy to reflect the changes
+        location.reload(); 
+    })
+    .catch(error => {
+        console.error('Error copying knowledge:', error);
+    });
+}
+
+function viewKnowledgeDetails(knowledgeId) {
+    // Change the content of the tab without redirecting
+    $('#tabContent').html('<p>Loading...</p>');
+
+    // Load the complex tab page
+    $.get(`/item/complex_tab/${knowledgeId}`, function(data) {
+        $('#tabContent').html(data);        
+        // renderMathJax();
+    }).fail(function() {
+        $('#tabContent').html('<p>Sorry but there was an error loading the details.</p>');
+    });
+}
+
+function renderMathJax() {
+    const items = document.querySelectorAll('.item-content');
+    items.forEach(item => {
+        let originalContent = item.textContent || item.innerText;
+        let wrappedContent = wrapText(originalContent);
+        item.innerHTML = `${wrappedContent}`;
+        // item.innerHTML =  `\\begin{array}{l} ${wrappedContent} \\end{array}`;
+    });
+
+   if (typeof window.MathJax !== 'undefined' && typeof window.MathJax.typesetPromise === 'function') {
+        // If MathJax has a startup promise, wait for it to resolve
+        if (window.MathJax.startup && window.MathJax.startup.promise) {
+            window.MathJax.startup.promise.then(() => {
+                window.MathJax.typesetPromise(items).then(() => {
+                    console.log('MathJax content has been rendered.');
+                }).catch((err) => {
+                    console.error('MathJax error during typesetting:', err);
+                });
+            }).catch((err) => {
+                console.error('MathJax startup failed:', err);
+            });
+        } else {
+            // If no startup promise, directly use typesetPromise
+            window.MathJax.typesetPromise(items).then(() => {
+                console.log('MathJax content has been rendered without startup promise.');
+            }).catch((err) => {
+                console.error('MathJax error during typesetting:', err);
+            });
+        }
+    } else {
+        // MathJax is not available or not properly loaded
+        console.debug('MathJax is not loaded or typesetPromise is not available.');
+    }
+}
+
+
+
+function closeAddKnowledgeModal() {
+    $('#addKnowledgeModal').modal('hide');
+    $('.modal-backdrop').remove();
+     
+}
+
+function closeSelectKnowledgeTypeModal() {
+    transitionBetweenModals('selectKnowledgeTypeModal', 'addKnowledgeModal');
+}
+
+function closeItemEntryModal() {
+    transitionBetweenModals('itemEntryModal', 'selectKnowledgeTypeModal');
+}
+
+function openSelectKnowledgeTypeModal() {
+    const form = document.getElementById('addKnowledgeForm');
+    if (!validateForm(form)) {
+        return;
+    }
+    transitionBetweenModals('addKnowledgeModal', 'selectKnowledgeTypeModal');
+}
+
+
+function openAddKnowledgeItemDetailsModal(selectedKnowledgeTypeId, selectedKnowledgeTypeName) {
+    console.log("Opening item entry modal with KnowledgeType ID:", selectedKnowledgeTypeId, "KnowledgeType Name:", selectedKnowledgeTypeName);
+    
+    document.getElementById('selectedKnowledgeTypeId').value = selectedKnowledgeTypeId;
+    document.getElementById('selectedKnowledgeTypeName').value = selectedKnowledgeTypeName;    
+    $('#selectKnowledgeTypeModal').modal('hide');
+    $('#itemEntryModal').modal('show');
+}
+
+
+window.imgsrcFilesArray = window.imgsrcFilesArray || [];
+window.filesArray = window.filesArray || [];
+
+function addItemToKnowledge() {
+    const form = document.getElementById('itemEntryForm');
+    if (!validateForm(form)) {
+        return;
+    }
+
+    const formData = new FormData(form);
+    const itemName = formData.get('itemName');
+    const itemDescription = formData.get('itemDescription');
+    const itemContent = formData.get('itemContent');
+    const imgsrcFile = formData.get('imgsrc');
+    const file = formData.get('file');
+
+    // Create a new row for the summary table
+    const itemSummaryBody = document.getElementById('itemSummaryBody');
+    const newRow = document.createElement('tr');
+
+    // Populate row with item details
+    newRow.innerHTML = `
+        <td>${document.getElementById('selectedKnowledgeTypeName').value}</td>
+        <td>${itemName}</td>
+        <td>${itemDescription}</td>
+        <td>${itemContent}</td>
+        <td><span>${imgsrcFile ? imgsrcFile.name : 'No file selected'}</span></td>
+        <td><span>${file ? file.name : 'No file selected'}</span></td>
+    `;
+
+    // Store the files in arrays for later submission
+    imgsrcFilesArray.push(imgsrcFile || null);  // Push the image file or null
+    filesArray.push(file || null);  // Push the regular file or null
+
+    // Add the row to the table
+    itemSummaryBody.appendChild(newRow);
+
+    // Reset the item entry form for the next entry
+    form.reset();
+    transitionBetweenModals('itemEntryModal', 'addKnowledgeModal');
+}
+
+
+
+function submitKnowledge() {
+    const form = document.getElementById('addKnowledgeForm');
+
+    if (!validateForm(form)) {
+        return;
+    }
+
+    const formData = new FormData(form);
+
+    $.ajax({
+        url: apiUrl + '/register',
+        method: 'POST',
+        contentType: false,
+        processData: false,
+        data: formData,
+        success: function(response) {
+            console.log('Knowledge registered:', response);
+
+            form.reset();
+
+            $('#addKnowledgeModal').modal('hide');
+            location.reload();
+        },
+        error: function(xhr, status, error) {
+            const response = JSON.parse(xhr.responseText);
+            if (response.error) {
+                console.log(response.error);
+            } else {
+                alert('Failed to register the knowledge. Please try again.');
+            }
+        }
+    });
+}
+
+
+
+    function openEditKnowledgeModal(id, name, description, sharing_status, creator_name) {
+        var currentUserName = "{{ current_user.name }}";
+
+        const form = document.getElementById('editKnowledgeForm');
+        form.elements['id'].value = id;
+
+        document.getElementById("editKnowledgeFormName").value = name;
+        document.getElementById("editKnowledgeFormDescription").value = description;
+        const sharingStatusSelect = document.getElementById('editKnowledgeFormSharing_status');
+
+        sharingStatusSelect.value = sharing_status;
+        if (creator_name !== currentUserName) {
+            sharingStatusSelect.disabled = true;
+        } else {
+            sharingStatusSelect.disabled = false;
+        }
+
+        $('#editKnowledgeModal').modal('show');
+    }
+
+
+    function saveEditedKnowledge() {
+        const form = document.getElementById('editKnowledgeForm');
+        const formData = new FormData(form);
+
+        const data = {};
+        formData.forEach((value, key) => {
+            data[key] = value;
+        });
+
+        const id = data.id;
+
+        $.ajax({
+            url: '/api/knowledge'+`/${id}`,
+            method: 'PUT',
+            data: JSON.stringify(data),
+            contentType: 'application/json',
+            success: function(response) {
+                console.log('Knowledge updated:', response);
+                $('#editKnowledgeModal').modal('hide');
+                location.reload();
+            },
+            error: function(error) {
+                console.error('Error updating knowledge:', error);
+                alert('Failed to update knowledge. Please try again.');
+            }
+        });
+    }
+
+    
+    function deleteKnowledge(id) {
+        deleteItem(apiUrl, id);
+    }
+        // Set initial view on page load (optional)
+        window.onload = function() {
+            toggleView();
+        };
+
+// Download Knowledge
+function downloadKnowledge(id) {
+    // Redirect to the download route
+    window.location.href = `/api/knowledge/download_knowledge/${id}`;
+}
+
+// Upload Knowledge
+document.getElementById('uploadKnowledgeForm').onsubmit = async function (event) {
+    event.preventDefault();
+
+    const formData = new FormData();
+    const fileInput = document.getElementById('knowledgeFile');
+    const file = fileInput.files[0];
+    
+    if (file) {
+        formData.append('file', file);
+
+        try {
+            const response = await fetch('/api/knowledge/upload_knowledge', {
+                method: 'POST',
+                body: formData
+            });
+
+            const result = await response.json();
+            if (response.ok) {
+                location.reload(); // Reload the page to show the new knowledge entry
+            } else {
+                alert(result.error || 'Upload failed.');
+            }
+        } catch (error) {
+            console.error('Error uploading knowledge:', error);
+            alert('An error occurred while uploading the file.');
+        }
+    } else {
+        alert('Please select a file.');
+    }
+};
+
+</script>
+{% endblock %}

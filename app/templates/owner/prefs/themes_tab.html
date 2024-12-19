@@ -1,0 +1,81 @@
+<div class="container mt-5">
+    <div class="d-flex justify-content-between mb-3">
+        {{ AddButton(btn_class="btn-primary", data_target="#addThemeModal") }}
+        {{ SearchForm() }}
+    </div>
+
+    {{ DynamicTable(
+        table_id="ProductsTable",
+        columns=[
+            {'header': 'ID', 'field': 'id', 'type': 'hidden'}, 
+            {'header': 'name', 'field': 'name'},        
+            {'header': 'description', 'field': 'description'}
+        ],
+        items=items,
+        actions=[
+            {'icon': 'edit', 'function': 'openEditThemeModal', 'label': 'Edit', 'params': ['id', 'name', 'description']},
+            {'icon': 'trash', 'function': 'deleteTheme', 'label': 'Delete', 'params': ['id']}
+        ],
+        toggle_column={'field': 'is_active', 'url': '/api/theme/toggle'}
+        )
+    }}
+
+    {{ Pagination(items) }}
+</div>
+
+{{ Modal(
+    modal_id="addThemeModal",
+    modal_title="add theme",
+    form_id="addThemeForm",
+    fields=[
+        {'type': 'text', 'name': 'name', 'label': 'name', 'required': True},
+        {'type': 'textarea', 'name': 'description', 'label': 'description', 'required': False},        
+    ],
+    submit_text='done',
+    button_text='add theme',
+    submit_function="submitAddThemeForm()"
+) }}
+
+{{ Modal(
+    modal_id="editThemeModal",
+    modal_title="edit theme",
+    form_id="editThemeForm",
+    fields=[
+        {'type': 'hidden', 'name': 'id'},
+        {'type': 'text', 'name': 'name', 'label': 'name', 'required': True},
+        {'type': 'textarea', 'name': 'description', 'label': 'description', 'required': False}
+    ],
+    submit_text='done',
+    button_text='edit theme',
+    submit_function="saveEditedTheme()"
+) }}
+
+
+
+<script>
+var apiUrl = '/api/theme';
+
+function submitAddThemeForm() {
+    submitAddItem(apiUrl, 'addThemeForm', 'addThemeModal');
+}
+
+function openEditThemeModal(id, name, description) {
+    const form = document.getElementById('editThemeForm');
+    const formId = form.elements['id'];
+    const formName = form.elements['name'];
+    const formDescription = form.elements['description'];
+
+    if (formId) formId.value = id;
+    if (formName) formName.value = name;
+    if (formDescription) formDescription.value = description;
+    $('#editThemeModal').modal('show');
+}
+
+function saveEditedTheme() {
+     saveEditedItem(apiUrl, 'editThemeForm', 'editThemeModal');
+}
+
+function deleteTheme(id) {
+    deleteItem(apiUrl, id);
+}
+</script>

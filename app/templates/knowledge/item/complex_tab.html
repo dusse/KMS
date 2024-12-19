@@ -1,0 +1,1270 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<style>
+    .panel {
+        border: 2px solid black; /* Black border */
+        padding: 10px; /* Padding inside the border */
+        border-radius: 5px; /* Optional: rounded corners */
+    }
+
+    /* Optional: You can also add some shadow for better visualization */
+    .panel {
+        box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1); /* Optional: adds a soft shadow around the panel */
+    }
+
+    .image-icon{
+        font-size: 2.5rem;
+    }
+
+    .tooltip {
+        visibility: hidden;
+        background-color: #333;
+        color: #fff;
+        text-align: center;
+        border-radius: 5px;
+        padding: 5px;
+        position: fixed;
+        z-index: 9999;
+        opacity: 0;
+        pointer-events: none; 
+        transition: opacity 0.2s;
+        font-size: 12px;
+        padding: 5px;
+    }
+    
+    /* Tooltip arrow */
+    .tooltip::after {
+        content: '';
+        position: absolute;
+        top: 2rem;
+        left: 50%;
+        margin-left: -5px;
+        border-width: 5px;
+        border-style: solid;
+        border-color: #333 transparent transparent transparent;
+    }
+    
+    /* Tooltip visible when hovered */
+    .show-tooltip {
+        visibility: visible;
+        opacity: 1;
+    }
+
+</style>
+
+<div class="container mt-5">
+<div class="d-flex justify-content-between align-items-center mb-3 mt-3">
+    <div class="pathway d-flex align-items-center">
+        <h2 id="loadKnowledgesTab" class="d-inline" 
+           onclick="loadTabContent('knowledges')" 
+           style="cursor: pointer; color: #007bff;">..</h2>
+        <span class="mx-2">/</span>
+        <h2 id="knowledgeTitle" class="d-inline">{{ knowledge.name }}</h2>
+    </div>
+    <button class="btn btn-secondary mr-3" onclick="downloadItemsAsPDF()">download pdf + tex project</button>
+
+    {{ AddButton(btn_class="btn btn-primary", data_target="#selectKnowledgeTypeModal") }}
+</div>
+
+
+<div class="mt-5" id="knowledgeItemsList">
+    <div class="row">
+        {% for item in knowledge.known_items | sort(attribute='order', reverse=false) %}
+        <div class="col-md-6">
+            <div class="panel mb-4" id="knowledgeItem-{{ item.id }}" draggable="true" ondragstart="drag(event)" ondragOver="dragOver(event)" ondrop="drop(event)" data-order="{{ loop.index }}" style="background-color: #f0f0f2;">
+                
+                <div class="panel-body d-flex flex-column align-items-center" style="overflow-y: auto;">
+                    
+                    <!-- Title and Action Buttons Section -->
+                    <div class="title-section d-flex justify-content-between align-items-center w-100 mb-2">
+                      
+                      <div class="d-flex align-items-center">
+                            <span style="font-weight: bold; font-size: 1.25rem; padding-right: 0px;">#</span>
+                            <input type="number" id="input-order-{{ item.id }}" class="form-control form-control-sm order-number ml-1" 
+                                value="{{ loop.index }}" min="1" style="width: 3.5rem; text-align: left;" 
+                                onchange="onOrderInputChange({{ item.id }}, {{ loop.index }})">
+
+                            <!-- Progress Status Icon -->
+                            <span class="progress-icon ml-2" title="{{ item.progress_status.value[1] }}">
+                                {% if item.progress_status == ProgressStatus.inprogress %}
+                                    <i class="fas fa-spinner" style="color: #ffc107;" aria-hidden="true"></i>
+                                {% elif item.progress_status == ProgressStatus.done %}
+                                    <i class="fas fa-check-circle" style="color: #28a745;" aria-hidden="true"></i>
+                                {% elif item.progress_status == ProgressStatus.onreview %}
+                                    <i class="fas fa-hourglass-half" style="color: #17a2b8;" aria-hidden="true"></i>
+                                {% endif %}
+                            </span>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="actions">
+                            <button class="btn btn-link p-0" onclick="editKnownItem({{ item.id }})" title="edit">
+                                <i class="fas fa-edit" style="color: #007bff;"></i>
+                                <span class="tooltip">edit</span>
+                            </button>
+                            <button class="btn btn-link p-0 ml-2" onclick="openBibliographyModal({{ item.id }})" title="manage bibliography">
+                             <i class="fas fa-book" style="color: #007bff;"></i>
+                             <span class="tooltip">manage bibliography</span>
+                            </button>
+                            <button class="btn btn-floppy p-0 ml-2" onclick="viewItemFiles({{ item.id }})" title="view">
+                                <i class="fas fa-floppy-disk" style="color: #007bff;"></i>
+                                <span class="tooltip">view files</span>
+                            </button>
+                            <button class="btn btn-history p-0 ml-2" onclick="viewHistory({{ item.id }})" title="history">
+                                <i class="fas fa-history" style="color: #007bff;"></i>
+                                <span class="tooltip">history</span>
+                            </button>                         
+                            <button class="btn btn-link p-0 ml-2" onclick="deleteKnownItem({{ item.id }})" title="delete">
+                                <i class="fas fa-trash" style="color: #007bff;"></i>
+                                <span class="tooltip">delete</span>
+                            </button>
+                        </div>
+                        
+                    </div>
+                    <div class="item-name" style="max-width: 70%; word-break: break-word;">
+                            <h2>{{ item.name }}</h2>
+                    </div>
+                    <!-- Description Section -->
+                <div class="description-and-image d-flex w-100">
+
+                    {% if item.imgsrc %}
+                    <div class="image-preview" style="max-width: 40%; position: relative;">
+                        <img src="{{ url_for('static', filename='uploads/' + item.imgsrc) }}" alt="Item Image" class="img-fluid">
+                        <!-- Zoom Button -->
+                        <button class="btn btn-link zoom-btn" title="Zoom" style="position: absolute; top: 1rem; left: 1rem;">
+                            <i class="fas fa-search-plus image-icon" style="color: #000000;" data-target="#imageModal" data-img-src="{{ url_for('static', filename='uploads/' + item.imgsrc) }}"></i>
+                        </button>
+                    </div>
+
+                    <div class="description ml-auto" style="max-width: 60%; word-break: break-word;">
+                        <h5 class="item-description ml-2">{{ item.description }}</h5>
+                    </div>
+
+                    {% else %}
+
+                    <div class="description ml-auto" style="max-width: 100%; word-break: break-word;">
+                        <h5 class="item-description ml-2">{{ item.description }}</h5>
+                    </div>
+
+                    {% endif %}
+
+
+
+                    
+                </div>
+
+                    <!-- Content Section -->
+                    <div class="content-section text-left w-100 m-3">
+                        <h6 class="item-content">{{ replace_cite(item.content) }}</h6>
+
+                        {% if item.bibliography_ids %}
+                            {% set biblios = item.get_bibliographies() %}
+                            {% if biblios | length > 0 %}
+                                <div class="citations">
+                                    <h4>biblio:</h4>
+                                    <ul>
+                                        {% for bibliography in biblios %}
+                                            <li>
+                                                {% if bibliography %}
+                                                    <a href="#" onclick="loadTabContent('biblio', 1, '{{ bibliography.name }}', '');">
+                                                      [{{ bibliography.name }}]
+                                                    </a> 
+                                                    <span class="citation-year">{{ bibliography.title }}</span>
+                                                {% endif %}
+                                            </li>
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+                            {% endif %}
+                        {% endif %}
+
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+<div class="modal fade" id="fileManagementModal-{{ item.id }}" tabindex="-1" role="dialog" aria-labelledby="fileManagementModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document" style="min-width: 45rem;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="fileManagementModalLabel">manage files for {{ item.name }}</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <!-- Table for managing current files -->
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th scope="col">image</th>
+                            <th scope="col">data file</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <!-- Left Column for Image -->
+                            <td style="height: 150px;">
+                                {% if item.imgsrc %}
+                                <p>{{ 'uploads/' + item.imgsrc }}</p>
+                                <button class="btn btn-success btn-sm" onclick="downloadImage({{ item.id }})">download</button>
+                                <button class="btn btn-danger btn-sm" onclick="deleteImage({{ item.id }})">delete</button>
+                                {% else %}
+                                <p>no image uploaded</p>
+                                {% endif %}
+                            </td>
+
+                            <!-- Right Column for Data File -->
+                            <td style="height: 150px;">
+                                {% if item.file_id %}
+                                <p>{{ 'uploads/' + item.file.filename }}</p>
+                                <button class="btn btn-success btn-sm" onclick="downloadDataFiles({{ item.id }})">download</button>
+                                <button class="btn btn-danger btn-sm" onclick="deleteDataFile({{ item.id }})">delete</button>
+                                {% else %}
+                                <p>no data file uploaded</p>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <!-- Upload New Files Row -->
+                            <td style="border: 1px solid black; height: 150px; padding-right: 10px;">
+                                <!-- Image Upload Section -->
+                                <div>
+                                    <label for="newImage-{{ item.id }}">upload new image</label>
+                                    <input type="file" class="form-control mb-2" id="newImage-{{ item.id }}">
+                                </div>
+                            </td>
+                            <td style="border: 1px solid black; height: 150px; padding-left: 10px;">
+                                <!-- Data File Upload Section -->
+                                <div>
+                                    <label for="newDataFile-{{ item.id }}">upload new data file</label>
+                                    <input type="file" class="form-control" id="newDataFile-{{ item.id }}">
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">close</button>
+                <button type="button" class="btn btn-primary" onclick="uploadNewFiles({{ item.id }})">save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+
+
+
+        {% endfor %}
+    </div>
+</div>
+
+
+
+<div class="modal fade" id="imageModal" tabindex="-1" role="dialog" aria-labelledby="imageModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-body">
+                <img id="largeImage" src="" alt="Zoomed Image" style="width: 100%;">
+            </div>
+        </div>
+    </div>
+</div>
+
+</div>
+
+{{ SelectorModal(modal_id="selectKnowledgeTypeModal", modal_title="knowledge types", items=knowledgetypes, onclick_function_name='openAddKnowledgeItemDetailsModal',   close_function_name='closeSelectKnowledgeTypeModal') }}
+
+<div class="modal fade" id="historyModal" tabindex="-1" aria-labelledby="historyModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg" style="min-width: 67%;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="historyModalLabel">history</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="row align-items-start">
+                    <!-- Current Version -->
+                    <div class="col-md-6">
+                        <div class="panel mb-4" style="background-color: #f0f0f2; margin-top: 2.5rem;">
+                            <div class="panel-body">
+                                <div class="title-section">
+                                    <h5 id="currentVersionTitle" class="item-name"></h5>
+                                </div>
+                                <div class="d-flex">
+                                    <div class="description ml-auto" id="currentVersionDescription" style="max-width: 100%;"></div>
+                                </div>
+                                <div class="content-section mt-3" id="currentVersionContent"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Previous Version -->
+                    <div class="col-md-6">
+                        <div class="d-flex align-items-center mb-2" style="height: 2rem;">
+                            <select id="versionSelect" class="form-select select-version" style="margin-top: -0.5rem;"></select>
+                            <button id="deleteVersionButton" class="btn btn-danger ml-2" style="margin-top: -0.5rem;" onclick="deleteVersion()">delete version</button>
+                        </div>
+                        <div class="panel mb-4" style="background-color: #f0f0f2;">
+                            <div class="panel-body">
+                                <div class="title-section">
+                                    <h5 id="previousVersionTitle" class="item-name"></h5>
+                                </div>
+                                <div class="d-flex">
+                                    <div class="description ml-auto" id="previousVersionDescription" style="max-width: 100%;"></div>
+                                </div>
+                                <div class="content-section mt-3" id="previousVersionContent"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+
+<div class="modal fade" id="addItemModal" tabindex="-1" role="dialog" aria-labelledby="addItemModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addItemModalLabel">details</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="addItemForm">
+                    <input type="hidden" id="selectedKnowledgeTypeId" name="knowledgetype_id" value="">
+                    <div class="form-group">
+                        <label for="selectedKnowledgeName">knowledge</label>
+                        <input type="text" class="form-control" id="selectedKnowledgeName" value="{{ knowledge.name }}" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label for="selectedKnowledgeTypeName">type</label>
+                        <input type="text" class="form-control" id="selectedKnowledgeTypeName" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label for="itemName">name</label>
+                        <input type="text" class="form-control" name="itemName" id="itemName" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="itemDescription">description</label>
+                        <textarea class="form-control" name="itemDescription" id="itemDescription" rows="3"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="itemContent">content</label>
+                        <textarea class="form-control" name="itemContent" id="itemContent" rows="3"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="imgsrc">image src</label>
+                        <input type="file" class="form-control" name="imgsrc" id="imgsrc">
+                    </div>
+                    <div class="form-group">
+                        <label for="filename">file</label>
+                        <input type="file" class="form-control" name="file" id="filename">
+                    </div>
+
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal" onclick="closeAddItemModal()">close</button>
+                <button type="button" class="btn btn-primary" onclick="addItemToKnowledge()">add</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+<div class="modal fade" id="editKnownItemModal" tabindex="-1" role="dialog" aria-labelledby="editKnownItemModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-scrollable" role="document" style="max-width: 80%;">
+        <div class="modal-content">
+            <form id="editKnownItemForm" action="#" method="POST" enctype="multipart/form-data">
+                <div class="modal-header">                    
+                    <h5 class="modal-title" id="editKnownItemModalLabel">edit item</h5>
+                    
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close" id="closeModalButton">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+
+                </div>
+                <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+                    <!-- Hidden field for ID -->
+                    <input type="hidden" name="id" id="editKnownItemFormId">
+
+                    <div class="form-group">
+                        <label for="progress_status">status</label>
+                        <select class="form-control" id="progress_status" name="progress_status" required>
+                            {% for status in available_progress_statuses %}
+                                <option value="{{ status.id }}">{{ status.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="editKnownItemFormName">name</label>
+                        <input class="form-control" id="editKnownItemFormName" name="name"></input>
+                    </div>
+                    <div class="form-group">
+                        <label for="editKnownItemFormDescription">description</label>
+                        <textarea class="form-control" id="editKnownItemFormDescription" name="description" rows="3"></textarea>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <h5>content</h5>
+                                <textarea class="form-control" id="editKnownItemFormContent" name="content" rows="10" oninput="renderContent()"></textarea>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <h5>rendered content</h5>
+                            <div id="contentOutput" style="border: 1px solid #ccc; padding: 10px; min-height: 70px;"></div>
+                        </div>
+                    </div>
+                </div> 
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">close</button>
+                    <button type="button" class="btn btn-primary" onclick="saveEditedKnownItem()">save</button>
+                </div>               
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal for managing Bibliographies -->
+<div class="modal fade" id="manageBibliographiesModal" tabindex="-1" role="dialog" aria-labelledby="manageBibliographiesModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-scrollable" role="document" style="max-width: 70%;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="manageBibliographiesModalLabel">manage bibliography</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+                <input type="hidden" id="manageBibliographiesKnownItemId">
+                <h5>associated bibliographies</h5>
+                <ul id="bibliographiesList" class="list-group">
+                    <!-- Bibliographies will be dynamically loaded here -->
+                </ul>
+                <hr>
+
+                <!-- Dropdown to select bibliography to add -->
+                <div class="form-group d-flex align-items-center">
+                    <select class="form-control mr-5" id="selectBibliography" style="width: 60%; flex: 1;">
+                        <option value="" disabled selected>select reference</option>
+                    </select>
+                    <button type="button" class="btn btn-primary ml-4" onclick="addSelectedBibliography()">add to biblio</button>
+                </div>
+                
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+<script>
+var apiUrl = '/api/knownitem';
+
+
+function deleteVersion() {
+    const versionSelect = document.getElementById('versionSelect');
+    const selectedOption = versionSelect.options[versionSelect.selectedIndex];
+
+
+    const verid = selectedOption.getAttribute('verid')
+    const itemId = selectedOption.getAttribute('itemId')
+
+    // Ensure a version is selected
+    if (!verid) {
+        alert("Please select a version to delete.");
+        return;
+    }
+
+    // Send delete request to the server
+    fetch(apiUrl+`/deleteVer/${verid}`, {
+        method: 'DELETE',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            viewHistory(itemId);
+        } else {
+            alert("Failed to delete the version.");
+        }
+    })
+    .catch(error => {
+        console.error('Error deleting version:', error);
+        alert("An error occurred while deleting the version.");
+    });
+}
+
+
+
+function applyDiff(currentContent, previousContent) {
+    const diff = Diff.diffWords(previousContent, currentContent);
+    return diff.map(part => {
+        const backgroundColor = part.added ? 'lightgreen' : part.removed ? 'lightcoral' : 'transparent';
+        return `<span style="background-color: ${backgroundColor};">${part.value}</span>`;
+    }).join('');
+}
+
+
+function viewHistory(itemId) {
+    fetch(apiUrl+`/${itemId}/history`)
+        .then(response => response.json())
+        .then(itemData => {
+            if (!itemData) {
+                console.error('Error fetching item data');
+                return;
+            }
+
+            const previousVersions = itemData.previousVersions || [];
+            const previousContent = previousVersions[0]?.content || '';
+            const previousDescription = previousVersions[0]?.description || '';
+            const currentContent = itemData.content;
+            const currentDescription = itemData.description;
+            // Populate current version
+            document.getElementById('currentVersionTitle').textContent = itemData.name;
+            document.getElementById('currentVersionDescription').innerHTML = '<h5>'+applyDiff(currentDescription, previousDescription)+'</h5>';
+            document.getElementById('currentVersionContent').innerHTML = applyDiff(currentContent, previousContent);
+
+            // Populate version selector
+            const versionSelect = document.getElementById('versionSelect');
+            versionSelect.innerHTML = previousVersions.map((version, index) => 
+                `<option value="${index}" verId="${version.id}" itemId="${itemId}">${version.versionName}</option>`
+            ).join('');
+
+            // Display first previous version by default
+            if (previousVersions.length > 0) {
+                loadPreviousVersionContent(previousVersions[0]);
+            } else {
+                document.getElementById('previousVersionTitle').textContent = 'no previous versions available';
+                document.getElementById('previousVersionDescription').innerHTML = '';
+                document.getElementById('previousVersionContent').innerHTML = '';
+            }
+
+            // Add event listener for version select change
+            versionSelect.onchange = function () {
+                const selectedIndex = this.value;
+                loadPreviousVersionContent(previousVersions[selectedIndex]);
+                document.getElementById('currentVersionDescription').innerHTML = '<h5>'+applyDiff(currentDescription, previousVersions[selectedIndex].description)+'</h5>';
+                document.getElementById('currentVersionContent').innerHTML = applyDiff(currentContent, previousVersions[selectedIndex].content);
+            };
+
+            // Show the modal
+            // var modal = document.getElementById('historyModal');
+            // $(modal).modal('show');
+            const modal = new bootstrap.Modal(document.getElementById('historyModal'));
+            modal.show();
+        })
+        .catch(error => {
+            console.error('Error fetching data:', error);
+        });
+}
+
+function loadPreviousVersionContent(version) {
+    document.getElementById('previousVersionTitle').textContent = version.name;
+    document.getElementById('previousVersionDescription').innerHTML = `<h5>${version.description}</h5>`;
+    document.getElementById('previousVersionContent').innerHTML = `<h6>${version.content}</h6>`;
+}
+
+
+
+
+    $('.image-icon').click(function() {
+        var imgSrc = $(this).data('img-src');
+        $('#largeImage').attr('src', imgSrc);
+        $('#imageModal').modal('show');
+    });
+
+
+function downloadItemsAsPDF() {
+    // Redirect to the download route, which will trigger the PDF download
+    window.location.href = "/api/knowledge/download_pdf/{{knowledge.id}}";
+}
+
+// Function to open the modal
+function viewItemFiles(itemId) {
+    var modal = document.getElementById('fileManagementModal-' + itemId);
+    $(modal).modal('show');
+}
+
+// Function to delete the image (you'll need an endpoint for deleting images on the server)
+function deleteImage(itemId) {
+    addCallbackToSession(function() {
+        const knowledgeId = sessionStorage.getItem('afterReloadId');
+        if (knowledgeId) {
+            viewKnowledgeDetails(knowledgeId);
+            sessionStorage.removeItem('afterReloadId');
+        }
+    });
+    sessionStorage.setItem('afterReloadId', '{{ knowledge.id }}');
+    deleteItem(`/api/knowledge/item/delete-image`, itemId);
+}
+
+function deleteDataFile(itemId) {
+    addCallbackToSession(function() {
+        const knowledgeId = sessionStorage.getItem('afterReloadId');
+        if (knowledgeId) {
+            viewKnowledgeDetails(knowledgeId);
+            sessionStorage.removeItem('afterReloadId');
+        }
+    });
+    sessionStorage.setItem('afterReloadId', '{{ knowledge.id }}');
+    deleteItem(`/api/knowledge/item/delete-datafile`, itemId);
+}
+
+// Function to handle file uploads (image + data file)
+function uploadNewFiles(itemId) {
+    var imageInput = document.getElementById('newImage-' + itemId);
+    var dataFileInput = document.getElementById('newDataFile-' + itemId);
+    
+    var formData = new FormData();
+    if (imageInput.files.length > 0) {
+        formData.append('imgsrc', imageInput.files[0]);
+    }
+    if (dataFileInput.files.length > 0) {
+        formData.append('file', dataFileInput.files[0]);
+    }
+
+    fetch(`/api/knowledge/item/${itemId}/upload-files`, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            console.log("Files uploaded successfully.");
+            addCallbackToSession(function() {
+            console.log("Child DOMContentLoaded function fired");
+        
+            // Your child-specific logic here
+            const knowledgeId = sessionStorage.getItem('afterReloadId');
+            if (knowledgeId) {
+                viewKnowledgeDetails(knowledgeId);
+                sessionStorage.removeItem('afterReloadId');
+            }
+        });
+        sessionStorage.setItem('afterReloadId', '{{ knowledge.id }}');
+
+            location.reload();  // Reload the page to reflect the changes
+        } else {
+            alert("Error uploading files.");
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Failed to upload files.');
+    });
+}
+
+
+function downloadImage(itemId) {
+    downloadFileFromServer(`/api/knowledge/item/${itemId}/download-image`);
+}
+
+function downloadDataFiles(itemId) {
+    downloadFileFromServer(`/api/knowledge/item/${itemId}/download-file`);
+}
+
+
+function downloadFileFromServer(url) {
+    fetch(url)
+        .then(response => {
+            if (!response.ok) {
+                // If response is not OK, throw an error with the message from the response
+                return response.json().then(data => {
+                    throw new Error(data.error || 'Unknown error');
+                });
+            }
+
+            // Retrieve the filename from the Content-Disposition header
+            const disposition = response.headers.get('Content-Disposition');
+            let filename = 'downloaded_file'; // Default filename if none found
+
+            if (disposition && disposition.includes('filename=')) {
+                filename = disposition.split('filename=')[1].split(';')[0].replace(/['"]/g, '');
+            }
+
+            // Return the file blob along with the filename
+            return response.blob().then(blob => ({ blob, filename }));
+        })
+        .then(({ blob, filename }) => {
+            // Create a link element to trigger download
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = filename; // Set the filename for download
+            link.click();
+
+            // Clean up by revoking the object URL after download
+            setTimeout(() => URL.revokeObjectURL(link.href), 100);
+        })
+        .catch(error => {
+            console.error('Error downloading the file:', error);
+            alert('Failed to download the file. ' + error.message);
+        });
+}
+
+
+function closeSelectKnowledgeTypeModal() {
+    $('#selectKnowledgeTypeModal').modal('hide');
+    $('.modal-backdrop').remove();
+}
+
+function closeAddItemModal() {
+    // Hide the specific modal
+    $('#addItemModal').modal('hide');
+
+    // Hide all modals
+    $('.modal').modal('hide');
+
+    // Remove modal backdrop
+    $('.modal-backdrop').remove();
+}
+
+function openSelectKnowledgeTypeModal() {
+    $('#selectKnowledgeTypeModal').modal('show');
+}
+
+
+function openAddKnowledgeItemDetailsModal(selectedKnowledgeTypeId, selectedKnowledgeTypeName) {
+    console.log("Opening item entry modal with KnowledgeType ID:", selectedKnowledgeTypeId, "KnowledgeType Name:", selectedKnowledgeTypeName);
+    document.getElementById('selectedKnowledgeTypeId').value = selectedKnowledgeTypeId;
+    document.getElementById('selectedKnowledgeTypeName').value = selectedKnowledgeTypeName;
+    transitionBetweenModals('selectKnowledgeTypeModal', 'addItemModal');
+}
+
+
+function renderContent() {
+    let contentCode = document.getElementById("editKnownItemFormContent").value;
+    contentCode = wrapText(contentCode);
+
+    let contentOutputDiv = document.getElementById("contentOutput");
+
+    // Update the content of the output div with the LaTeX code
+    contentOutputDiv.innerHTML = contentCode;
+
+
+    // Check if MathJax is available and properly loaded
+    if (typeof window.MathJax !== 'undefined' && window.MathJax.typesetPromise) {
+        // If MathJax is ready and typesetPromise is available
+        if (window.MathJax.startup && window.MathJax.startup.promise) {
+
+            window.MathJax.startup.promise.then(() => {
+                // MathJax is ready, now typeset the content
+                window.MathJax.typesetPromise([contentOutputDiv]).catch((err) => {
+                    console.error('Error with MathJax rendering:', err);
+                });
+            });
+        } else {
+            // Fallback: if there's no startup promise, just typeset directly            
+            window.MathJax.typesetPromise([contentOutputDiv]).catch((err) => {
+                console.error('Error with MathJax rendering:', err);
+            });
+        }
+    } else {
+        console.debug('MathJax is not loaded or typesetPromise is unavailable.');
+    }
+}
+
+function addItemToKnowledge() {
+    // Get the form element using its ID
+    const form = document.getElementById('addItemForm');
+    
+    // Check if the form exists before proceeding
+    if (!form) {
+        console.error('Form not found');
+        return;
+    }
+
+    // Create FormData from the form element
+    const formData = new FormData(form);
+
+    // Get knowledge name and type name directly from the inputs
+    const knowledgename = document.getElementById('selectedKnowledgeName').value;
+    const typename = document.getElementById('selectedKnowledgeTypeName').value;
+
+    // Log the values to ensure they are correct
+    console.log('Item Name:', formData.get('itemName'));
+    console.log('Item Description:', formData.get('itemDescription'));
+    console.log('Knowledge Name:', knowledgename);
+    console.log('Knowledge Type Name:', typename);
+
+    // Add knowledge name and type name to formData
+    formData.append('selectedKnowledgeName', knowledgename);
+    formData.append('selectedKnowledgeTypeName', typename);
+
+    fetch('/api/knowledge/item/add', {
+        method: 'POST',
+        body: formData,
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`Error: ${response.status} - ${response.statusText}`);
+        }        
+        return response.json();
+    })
+    .then(data => {
+        closeAddItemModal();
+        viewKnowledgeDetails('{{ knowledge.id }}')
+        document.body.style.overflow = 'auto';
+    })
+    .catch(error => {
+        alert(error.message); // Show error message
+        console.error('Error adding item:', error);
+    });
+}
+
+
+
+
+function editKnownItem(itemId) {
+    
+    // Fetch the current item details first
+    $.ajax({
+        url: `${apiUrl}/${itemId}`,
+        method: 'GET',
+        success: function(item) {
+
+            $('#editKnownItemForm [name="id"]').val(item.id);
+            $('#editKnownItemForm [name="progress_status"]').val(item.progress_status);
+            $('#editKnownItemForm [name="name"]').val(item.name);
+            $('#editKnownItemForm [name="description"]').val(item.description);
+            $('#editKnownItemForm [name="content"]').val(item.content);
+            renderContent();
+            $('#editKnownItemModal').modal('show');
+        },
+        error: function(error) {
+            console.error('Error fetching item details:', error);
+            alert('Failed to retrieve item details.');
+        }
+    });
+}
+
+
+function saveEditedKnownItem() {
+    const knowledgeId = '{{ knowledge.id }}';
+    saveEditedItem('/api/knownitem/update', 'editKnownItemForm', 'editKnownItemModal', () => {        
+        viewKnowledgeDetails(knowledgeId);
+        $('#editKnownItemModal').modal('hide');
+        $('.modal-backdrop').remove();
+        $('body').css('overflow', 'auto');
+    });
+
+}
+    
+    function deleteKnownItem(id) {
+        addCallbackToSession(function() {
+            console.log("Child DOMContentLoaded function fired");
+        
+            // Your child-specific logic here
+            const knowledgeId = sessionStorage.getItem('afterReloadId');
+            if (knowledgeId) {
+                viewKnowledgeDetails(knowledgeId);
+                sessionStorage.removeItem('afterReloadId');
+            }
+        });
+        sessionStorage.setItem('afterReloadId', '{{ knowledge.id }}');
+
+        deleteItem(apiUrl, id);
+    }
+
+function onOrderInputChange(itemId, currentIndex) {
+    const newOrder = parseInt(document.getElementById('input-order-' + itemId).value);
+
+    // Call the changeOrder function with the itemId, currentIndex, and newOrder
+    changeOrder(itemId, currentIndex, newOrder);
+
+    saveOrder();
+}
+
+
+function changeOrder(itemId, currentIndex, newOrder) {
+    console.log('changeOrder called for itemId:', itemId, 'currentIndex:', currentIndex, 'newOrder:', newOrder);
+
+    const container = document.getElementById('knowledgeItemsList');
+    if (!container) {
+        console.error("Container not found!");
+        return;
+    }
+
+    const colElements = Array.from(container.getElementsByClassName('col-md-6')); // Get column divs
+    const panelElements = Array.from(container.getElementsByClassName('panel')); // Get panel divs (the ones we need to swap)
+    console.log('panelElements:', panelElements);
+
+    const itemElement = document.getElementById('knowledgeItem-' + itemId);
+    if (!itemElement) {
+        console.error("Item element not found for itemId:", itemId);
+        return;
+    }
+
+    // Check if itemElement is a child of the container
+    if (!container.contains(itemElement)) {
+        console.error('Item element is no longer a child of the container:', itemElement);
+        return;
+    }
+
+    console.log('Item element found:', itemElement);
+
+    // Find the target element to swap with (based on newOrder)
+    const targetElement = panelElements.find(element => {
+        const targetOrder = parseInt(element.getAttribute('data-order'));
+        console.log('Checking target element with data-order:', targetOrder, 'for newOrder:', newOrder);
+        return !isNaN(targetOrder) && targetOrder === newOrder;
+    });
+
+    if (!targetElement) {
+        console.error('Target element not found for new order:', newOrder);
+        return;
+    }
+
+    console.log('Target element found:', targetElement);
+
+    // Ensure the elements are in the right column layout after the swap
+    const itemParentCol = itemElement.closest('.col-md-6'); // Get the column containing itemElement
+    const targetParentCol = targetElement.closest('.col-md-6'); // Get the column containing targetElement
+
+    console.log('Item parent column:', itemParentCol);
+    console.log('Target parent column:', targetParentCol);
+
+    // Swap the elements only within their respective columns to maintain layout
+    itemParentCol.appendChild(targetElement); // Move the target element to the position of the itemElement
+    targetParentCol.appendChild(itemElement); // Move the itemElement to the position of the targetElement
+
+    // Update the data-order attributes
+    itemElement.setAttribute('data-order', newOrder);
+    targetElement.setAttribute('data-order', currentIndex);
+
+    console.log('Data-order updated for both elements:', itemElement, targetElement);
+
+    // Update order input fields after the swap
+    updateOrderInputs(container);
+}
+
+// Helper function to update order inputs after swapping
+function updateOrderInputs(container) {
+    console.log('Updating order inputs...');
+    const updatedPanelElements = Array.from(container.getElementsByClassName('panel')); // Re-select elements after DOM update
+    updatedPanelElements.forEach((panel, index) => {
+        const inputOrder = panel.querySelector('.order-number');
+        if (inputOrder) {
+            inputOrder.value = index + 1; // Update the input field with the new order
+        }
+    });
+
+    console.log('Order inputs updated.');
+}
+
+
+window.draggedElement = window.draggedElement || null;
+
+function drag(event) {
+    window.draggedElement = event.target; // Store the dragged element
+    event.dataTransfer.setData("text", event.target.id); // Store ID for later use in drop
+}
+
+
+function dragOver(event) {
+    event.preventDefault(); // Necessary to allow the drop
+}
+
+function drop(event) {
+    event.preventDefault(); // Prevent default drop behavior
+    event.target.style.border = ""; // Remove the dashed border
+
+    const targetElement = event.target.closest('.panel'); // Get the closest panel element being dragged over
+    if (!targetElement || targetElement === window.draggedElement) return; // Ensure we're not dropping onto the dragged element itself
+
+    const draggedId = window.draggedElement.id.split('-')[1]; // Extract the ID of the dragged element (remove 'knowledgeItem-')
+    const currentIndex = parseInt(window.draggedElement.getAttribute('data-order')); // Current order of dragged element
+    const newIndex = parseInt(targetElement.getAttribute('data-order')); // New order of the target element
+
+    if (newIndex !== currentIndex) {
+        changeOrder(draggedId, currentIndex, newIndex);
+    }
+
+    saveOrder();
+}
+
+
+// Function to save the order on the frontend side
+function saveOrder() {
+    const container = document.getElementById('knowledgeItemsList');
+    if (!container) {
+        console.error("Container not found!");
+        return;
+    }
+
+    const panelElements = Array.from(container.getElementsByClassName('panel')); // Get all panels
+    const orderData = panelElements.map((panel, index) => {
+        return {
+            itemId: panel.id.split('-')[1], // Extract item ID from panel's ID
+            newOrder: index + 1 // New order (1-based index)
+        };
+    });
+
+    // Now, send this data to the backend using Fetch API or AJAX
+    fetch('/api/knowledge/saveOrder', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ order: orderData }), // Send the order data as JSON
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            console.log('Order saved successfully!');
+        } else {
+            console.error('Failed to save order.');
+        }
+    })
+    .catch(error => {
+        console.error('Error saving order:', error);
+    });
+}
+
+// Function to open the Manage Bibliographies modal
+function openBibliographyModal(knownItemId) {
+    // Set the hidden input value for KnownItem ID
+    document.getElementById('manageBibliographiesKnownItemId').value = knownItemId;
+
+    // Fetch and load the bibliographies associated with this KnownItem
+    loadBibliographiesForKnownItem(knownItemId);
+
+    // Fetch and populate the select box with all available bibliographies
+    // loadAllBibliographies();
+
+    // Show the modal
+    $('#manageBibliographiesModal').modal('show');
+}
+
+// Function to load bibliographies for the selected KnownItem
+function loadBibliographiesForKnownItem(knownItemId) {
+    fetch(apiUrl + `/${knownItemId}/biblio`)
+        .then(response => response.json())
+        .then(data => {
+            const bibliographiesList = document.getElementById('bibliographiesList');
+            bibliographiesList.innerHTML = '';  // Clear current list
+
+            data.bibliographies.forEach(biblio => {
+                const listItem = document.createElement('li');
+                listItem.classList.add('list-group-item');
+                listItem.innerHTML = `${biblio.name} - ${biblio.title} 
+                    <button class="btn btn-danger btn-sm float-right" onclick="removeBibliography(${knownItemId}, ${biblio.id})">Remove</button>`;
+                bibliographiesList.appendChild(listItem);
+            });
+        });
+}
+
+
+
+// Function to add the selected bibliography to the KnownItem
+function addSelectedBibliography() {
+    const knownItemId = document.getElementById('manageBibliographiesKnownItemId').value;
+    const selectedBibliographyId = document.getElementById('selectBibliography').value;
+
+    if (!selectedBibliographyId) {
+        alert('Please select an item to add.');
+        return;
+    }
+
+    fetch(apiUrl + '/addBibliography', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            knownItemId: knownItemId,
+            bibliographyId: selectedBibliographyId
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            loadBibliographiesForKnownItem(knownItemId);
+            loadAllBibliographies();
+            updateBibliographySection(knownItemId);
+        } else {
+            alert('Error adding bibliography');
+        }
+    });
+}
+
+// Function to remove a bibliography from a KnownItem
+function removeBibliography(knownItemId, bibliographyId) {
+    fetch(apiUrl + '/removeBibliography', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            knownItemId: knownItemId,
+            bibliographyId: bibliographyId
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            loadBibliographiesForKnownItem(knownItemId);
+            updateBibliographySection(knownItemId);
+        } else {
+            alert('Error removing bibliography');
+        }
+    });
+}
+
+function updateBibliographySection(itemId) {
+    fetch(apiUrl + `/${itemId}/biblio`)
+        .then(response => response.json())
+        .then(data => {
+
+            const bibliographies = data.bibliographies;
+
+            // Find the item card container by ID
+            const itemCard = document.getElementById(`knowledgeItem-${itemId}`);
+            
+            // Try to find the bibliography section in the item card
+            let bibliographySection = itemCard.querySelector('.citations');
+            
+            // If the bibliography section doesn't exist, create it dynamically
+            if (!bibliographySection) {
+                bibliographySection = document.createElement('div');
+                bibliographySection.classList.add('citations');
+                itemCard.querySelector('.content-section').appendChild(bibliographySection);
+            }
+
+            // Add or update the bibliography list
+            const bibliographyList = bibliographySection.querySelector('ul') || document.createElement('ul');
+            bibliographySection.innerHTML = '';  // Clear the existing section
+
+            // Add the "Bibliographies" header
+            const bibliographyHeader = document.createElement('h4');
+            if (bibliographies.length > 0) {
+                bibliographyHeader.textContent = 'biblio:';
+                bibliographyList.innerHTML = ''; // Clear previous list if it exists
+
+                // Add each bibliography to the list
+                bibliographies.forEach(biblio => {
+                    const listItem = document.createElement('li');
+                    listItem.innerHTML = `<a href="#" onclick="loadTabContent('biblio', 1, '${biblio.name}', '');">[${biblio.name}]</a> <span class="citation-year">${biblio.title}</span>`;
+                    bibliographyList.appendChild(listItem);
+                });
+            } else {
+                bibliographyHeader.textContent = '';
+                bibliographyList.innerHTML = '';
+            }
+
+            // Append the header and list to the bibliography section
+            bibliographySection.appendChild(bibliographyHeader);
+            bibliographySection.appendChild(bibliographyList);
+        })
+        .catch(error => {
+            console.error('Error fetching updated bibliographies:', error);
+        });
+}
+
+
+function loadAllBibliographies() {
+    fetch(apiUrl+'/biblio')
+        .then(response => response.json())
+        .then(data => {
+            const selectElement = document.getElementById('selectBibliography');
+            selectElement.innerHTML = '<option value="" disabled selected>select an item</option>'; // Reset options
+
+            data.bibliographies.forEach(biblio => {
+                const option = document.createElement('option');
+                option.value = biblio.id;
+                option.innerText = `${biblio.name} - ${biblio.title}`;
+                selectElement.appendChild(option);
+            });
+        });
+}
+
+function loadBibliographiesDropdown() {
+    // Example API call to fetch bibliographies
+    fetch(apiUrl + '/biblio')
+        .then(response => response.json())
+        .then(data => {
+            // Clear existing options
+            $('#selectBibliography').empty();
+
+            // Add a default placeholder option
+            $('#selectBibliography').append('<option></option>');
+
+            // Populate the dropdown with bibliographies
+            data.bibliographies.forEach(biblio => {
+                $('#selectBibliography').append(
+                    `<option value="${biblio.id}">${biblio.name} (${biblio.title})</option>`
+                );
+            });
+        })
+        .catch(error => {
+            console.error("Error loading bibliographies:", error);
+            alert("Failed to load bibliographies.");
+        });
+}
+
+$(document).ready(function () {
+
+
+    $('#selectBibliography').select2({
+        placeholder: "select an item",
+        allowClear: true,
+        dropdownParent: $('#manageBibliographiesModal') // Ensure dropdown is properly positioned in modal
+    });
+
+    // Load bibliographies dynamically
+    loadBibliographiesDropdown();
+
+    saveOrder();
+});
+
+document.querySelectorAll('.btn').forEach(button => {
+     button.addEventListener('mousemove', function(e) {
+        const tooltip = this.querySelector('.tooltip');
+        if (!tooltip) return;
+        // Make sure the tooltip is visible
+        tooltip.classList.add('show-tooltip');
+        
+        // Get the cursor's position (pageX, pageY)
+        let tooltipX = e.pageX + 15; // 15px offset to the right of the cursor
+        let tooltipY = e.pageY + 15; // 15px offset below the cursor
+
+        tooltipY = tooltipY*0.85;
+
+        // Set the tooltip's position based on the cursor position with calculated offsets
+        tooltip.style.left = `${tooltipX}px`;
+        tooltip.style.top = `${tooltipY}px`;
+    });
+
+    button.addEventListener('mouseover', function() {
+        const tooltip = this.querySelector('.tooltip');
+        if (!tooltip) return;
+        tooltip.classList.add('show-tooltip'); // Show tooltip
+    });
+    button.addEventListener('mouseout', function() {
+        const tooltip = this.querySelector('.tooltip');
+        if (!tooltip) return;
+        tooltip.classList.remove('show-tooltip'); // Hide tooltip
+    });
+});
+
+</script>
+{% endblock %}
+

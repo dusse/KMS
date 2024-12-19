@@ -1,0 +1,189 @@
+<div class="container mt-5">
+    <div class="d-flex justify-content-between mb-3">
+        {{ AddButton(btn_class="btn-primary", data_target="#addBiblioModal") }}
+        {{ SearchForm() }}
+    </div>
+
+    {{ DynamicTable(
+        table_id="BibliosTable",
+        columns=[
+            {'header': 'ID', 'field': 'id', 'type': 'hidden'},
+            {'header': 'name', 'field': 'name'},
+            {'header': 'title', 'field': 'title'},
+            {'header': 'authors', 'field': 'authors'},
+            {'header': 'year', 'field': 'year'},
+            {'header': 'bibtex', 'field': 'bibtex'}
+        ],
+        items=items,
+        actions=[
+            {'icon': 'edit', 'function': 'openEditBiblioModal', 'label': 'Edit', 'params': ['id','name', 'title', 'authors', 'year', 'bibtex']},
+            {'icon': 'trash', 'function': 'deleteBiblio', 'label': 'Delete', 'params': ['id']},
+            {'icon': 'download', 'function': 'downloadBiblioFile', 'label': 'Download', 'params': ['id']}
+        ]
+    )}}
+
+    {{ Pagination(items) }}
+</div>
+
+{{ Modal(
+    modal_id="addBiblioModal",
+    modal_title="Add Bibliography",
+    form_id="addBiblioForm",
+    fields=[
+        {'type': 'text', 'name': 'name', 'label': 'name', 'required': True},
+        {'type': 'text', 'name': 'title', 'label': 'title', 'required': True},
+        {'type': 'text', 'name': 'authors', 'label': 'authors', 'required': True},
+        {'type': 'number', 'name': 'year', 'label': 'year', 'required': True},
+        {'type': 'textarea', 'name': 'bibtex', 'label': 'bibtex', 'required': True},
+        {'type': 'file', 'name': 'file', 'label': 'upload file', 'required': False}
+    ],
+    submit_text='Done',
+    button_text='Add Bibliography',
+    submit_function="submitAddBiblioForm()"
+) }}
+
+{{ Modal(
+    modal_id="editBiblioModal",
+    modal_title="Edit Bibliography",
+    form_id="editBiblioForm",
+    fields=[
+        {'type': 'hidden', 'name': 'id'},
+        {'type': 'text', 'name': 'name', 'label': 'name', 'required': True},
+        {'type': 'text', 'name': 'title', 'label': 'title', 'required': True},
+        {'type': 'text', 'name': 'authors', 'label': 'authors', 'required': True},
+        {'type': 'number', 'name': 'year', 'label': 'year', 'required': True},
+        {'type': 'textarea', 'name': 'bibtex', 'label': 'bibtex', 'required': True},
+        {'type': 'file', 'name': 'file', 'label': 'upload file', 'required': False}
+    ],
+    submit_text='Done',
+    button_text='Edit Bibliography',
+    submit_function="saveEditedBiblio()"
+) }}
+
+<script>
+var apiUrl = '/api/biblio';
+
+function submitAddBiblioForm() {
+    const form = document.getElementById('addBiblioForm');
+
+    // Validate the form before proceeding (you can customize this validation)
+    if (!validateForm(form)) {
+        return; // Stop if validation fails
+    }
+
+    // Create a FormData object to hold the form data (including files)
+    const formData = new FormData(form);
+
+    // Send the form data to the backend as multipart/form-data (automatically handled by FormData)
+    fetch(apiUrl + '/add', {
+        method: 'POST',
+        body: formData  // The body will automatically include the file and other form data
+    })
+    .then(response => response.json())  // Parse JSON response
+    .then(data => {
+        if (data.error) {
+            alert('Error: ' + data.error);  // Handle error message if returned
+        } else {
+            // Hide the modal after successful submission
+            $('#addBiblioModal').modal('hide');
+
+            // Reload the page or invoke a callback function to update the page
+            location.reload();  // Or you could call a custom callback here if needed
+        }
+    })
+    .catch(error => {
+        console.error('There has been a problem with your fetch operation:', error);
+        alert('Failed to complete the operation. Please try again.');
+    });
+}
+
+
+function sanitizeValue(value) {
+    return value
+        ? value
+              .replace(/&/g, "&amp;")
+              .replace(/</g, "&lt;")
+              .replace(/>/g, "&gt;")
+              .replace(/"/g, "&quot;")
+              .replace(/'/g, "&#039;")
+              .replace(/\n/g, "\n")
+        : '';
+}
+
+
+function openEditBiblioModal(id, name, title, authors, year, bibtex) {
+    const form = document.getElementById('editBiblioForm');
+    const formId = form.elements['id'];
+    const formName = form.elements['name'];
+    const formTitle = form.elements['title'];
+    const formAuthors = form.elements['authors'];
+    const formYear = form.elements['year'];
+    const formBibtex = form.elements['bibtex'];
+    if (formId) formId.value = id;
+    if (formName) formName.value = name;
+    if (formTitle) formTitle.value = title;
+    if (formAuthors) formAuthors.value = authors;
+    if (formYear) formYear.value = year;
+    if (formBibtex) formBibtex.value = sanitizeValue(bibtex);
+    $('#editBiblioModal').modal('show');
+}
+
+function saveEditedBiblio() {
+    const form = document.getElementById('editBiblioForm');
+    
+    // Validate the form before proceeding
+    if (!validateForm(form)) {
+        return; // Stop if validation fails
+    }
+
+    // Create a FormData object to hold the form data (including files)
+    const formData = new FormData(form);
+
+    // Send the form data to the backend as multipart/form-data (automatically handled by FormData)
+    fetch(apiUrl + '/edit', {
+        method: 'POST',
+        body: formData  // The body will automatically include the file and other form data
+    })
+    .then(response => response.json())  // Parse JSON response
+    .then(data => {
+        if (data.error) {
+            alert('Error: ' + data.error);  // Handle error message if returned
+        } else {
+            // Hide the modal after successful submission
+            $('#editBiblioModal').modal('hide');
+
+            // Reload the page or invoke a callback function to update the page
+            location.reload();  // Or you could call a custom callback here if needed
+        }
+    })
+    .catch(error => {
+        console.error('There has been a problem with your fetch operation:', error);
+        alert('Failed to complete the operation. Please try again.');
+    });
+}
+
+function deleteBiblio(id) {
+    deleteItem(apiUrl + '/delete/', id);
+}
+
+
+function downloadBiblioFile(id) {
+    // Fetch the bibliography details to check for file presence
+    fetch(apiUrl + '/' + id)
+        .then(response => response.json())
+        .then(data => {
+            if (data.file_id) {
+                // If file exists, proceed with the download
+                window.location.href = apiUrl + '/download/' + id;
+            } else {
+                // If no file is associated, show a message
+                alert("No file associated with this bibliography entry.");
+            }
+        })
+        .catch(error => {
+            console.error("Error fetching bibliography entry:", error);
+            alert("An error occurred while checking for the file.");
+        });
+}
+
+</script>
